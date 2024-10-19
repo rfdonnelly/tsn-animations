@@ -93,7 +93,7 @@ class PeerLinkDelayMeasurement(Scene):
                 self.play(payload.set_color(color).animate.move_to(envelope).scale(0.5))
                 self.remove(payload)
             if ts_idx is not None:
-                ts = MathTex(r't_%d' % ts_idx).next_to(start, RIGHT * ts_idx_size)
+                ts = MathTex(r't_%d' % ts_idx, color=tx.get_color()).next_to(start, RIGHT * ts_idx_size)
                 timestamps.append(ts)
                 self.play(Write(ts))
             self.play(
@@ -101,7 +101,7 @@ class PeerLinkDelayMeasurement(Scene):
                 envelope.animate.move_to(rx).shift(DOWN * MED_LARGE_BUFF),
             )
             if ts_idx is not None:
-                ts = MathTex(r't_%d' % (ts_idx + 1)).next_to(end, LEFT * ts_idx_size)
+                ts = MathTex(r't_%d' % (ts_idx + 1), color=rx.get_color()).next_to(end, LEFT * ts_idx_size)
                 timestamps.append(ts)
                 self.play(Write(ts))
             self.play(ShrinkToCenter(envelope))
