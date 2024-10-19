@@ -5,6 +5,7 @@ class LabeledArrow(Arrow):
     def __init__(
         self,
         label: str,
+        bottom_label = None,
         color: ParsableManimColor = WHITE,
         *args,
         **kwargs,
@@ -25,6 +26,16 @@ class LabeledArrow(Arrow):
                 .move_to(self)
                 .shift(UP * MED_SMALL_BUFF)
         )
+
+        if bottom_label is not None:
+            self.add(
+                bottom_label
+                    .copy()
+                    .set_color(color)
+                    .scale(0.5)
+                    .move_to(self)
+                    .shift(DOWN * 0.2)
+            )
 
 class Envelope(Rectangle):
     def __init__(
@@ -75,7 +86,7 @@ class PeerLinkDelayMeasurement(Scene):
             ts_idx_size = 1 if tx.get_x() > 0 else -1
             timestamps = []
 
-            arrow = LabeledArrow(label, start=start, end=end, color=color)
+            arrow = LabeledArrow(label, bottom_label=payload, start=start, end=end, color=color)
             envelope = Envelope(color=color).move_to(tx).shift(DOWN * MED_LARGE_BUFF)
             self.play(GrowFromCenter(envelope))
             if payload is not None:
