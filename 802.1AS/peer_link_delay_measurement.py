@@ -11,7 +11,6 @@ class LabeledArrow(Arrow):
         super().__init__(*args, color=color, **kwargs)
 
         def angle():
-            print("%s %f" % (label, self.get_angle()))
             if self.get_angle() < -PI/2:
                 return self.get_angle() - PI
             else:
@@ -54,54 +53,36 @@ class PeerLinkDelayMeasurement(Scene):
                 .add(Text("timeReceiver"))
                 .shift(RIGHT * 3)
         )
-        line = DoubleArrow(start=tt.get_right(), end=tr.get_left())
-        self.play(Create(tt), Create(tr), GrowArrow(line))
+        self.play(Create(tt))
+        self.play(Create(tr))
 
-
-        topology = Group(tt, tr, line)
+        topology = Group(tt, tr)
         self.play(topology.animate.next_to(ORIGIN, UP, buff=1.5))
+        self.play(
+            Create(Line([0, 1, 0], [0, -3.5, 0], color=GREEN).shift(LEFT * 3)),
+            Create(Line([0, 1, 0], [0, -3.5, 0], color=BLUE).shift(RIGHT * 3)),
+        )
 
-        def seqline(start, color=WHITE):
-            return Line(start, start + DOWN * 4.5, color=color)
+        def transmit(label, tx, rx, time, color=WHITE):
+            start = tx.get_bottom() + DOWN * (MED_LARGE_BUFF + time)
+            end = rx.get_bottom() + DOWN * (MED_LARGE_BUFF + time + 1)
 
-        tt_line = seqline(tt.get_bottom() + DOWN * 0.5, color=GREEN)
-        tr_line = seqline(tr.get_bottom() + DOWN * 0.5, color=BLUE)
-        self.play(Create(tt_line), Create(tr_line))
-
-        def tr_to_tt(text, start, end, color=WHITE):
-            arrow = LabeledArrow(text, start=start, end=end, color=color)
-            msg = Envelope(color=color).move_to(tr).shift(UP * MED_LARGE_BUFF)
+            arrow = LabeledArrow(label, start=start, end=end, color=color)
+            envelope = Envelope(color=color).move_to(tx).shift(DOWN * MED_LARGE_BUFF)
             self.play(Succession(
-                GrowFromCenter(msg),
+                GrowFromCenter(envelope),
                 AnimationGroup(
                     GrowArrow(arrow),
-                    msg.animate.move_to(tt).shift(UP * MED_LARGE_BUFF)
+                    envelope.animate.move_to(rx).shift(DOWN * MED_LARGE_BUFF),
                 ),
-                ShrinkToCenter(msg),
+                ShrinkToCenter(envelope)
             ))
 
-        def tt_to_tr(text, start, end, color=WHITE):
-            arrow = LabeledArrow(text, start=start, end=end, color=color)
-            msg = Envelope(color=color).move_to(tt).shift(UP * MED_LARGE_BUFF)
-            self.play(Succession(
-                GrowFromCenter(msg),
-                AnimationGroup(
-                    GrowArrow(arrow),
-                    msg.animate.move_to(tr).shift(UP * MED_LARGE_BUFF)
-                ),
-                ShrinkToCenter(msg),
-            ))
-
-        tr_pos = tr_line.get_start() + DOWN * 0.2
-        tt_pos = tt_line.get_start() + DOWN * 1.2
-        tr_to_tt("pdelay_req", tr_pos, tt_pos, color=GOLD)
-
-        tt_pos += DOWN
-        tr_pos += DOWN * 3
-        tt_to_tr("pdelay_resp", tt_pos, tr_pos, color=MAROON)
-
-        tt_pos += DOWN
-        tr_pos += DOWN
-        tt_to_tr("pdelay_resp_follow_up", tt_pos, tr_pos, color=PURPLE)
+        time = 0.2
+        transmit("pdelay_req", tr, tt, time, color=GOLD)
+        time += 2
+        transmit("pdelay_resp", tt, tr, time, color=MAROON)
+        time += 1
+        transmit("pdelay_resp_follow_up", tt, tr, time, color=PURPLE)
 
         self.wait(3)
