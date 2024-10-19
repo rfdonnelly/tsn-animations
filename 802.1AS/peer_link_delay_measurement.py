@@ -12,8 +12,10 @@ class LabeledArrow(Arrow):
 
         def angle():
             if self.get_angle() < -PI/2:
+                # down left
                 return self.get_angle() - PI
             else:
+                # down right
                 return self.get_angle()
 
         self.add(
