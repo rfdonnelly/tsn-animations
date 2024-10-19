@@ -1,4 +1,5 @@
 from manim import *
+from typing import Optional
 
 class LabeledArrow(Arrow):
     def __init__(
@@ -65,25 +66,33 @@ class PeerLinkDelayMeasurement(Scene):
             Create(Line([0, 1, 0], [0, -3.5, 0], color=BLUE).shift(RIGHT * 3)),
         )
 
-        def transmit(label, tx, rx, time, color=WHITE):
-            start = tx.get_bottom() + DOWN * (MED_LARGE_BUFF + time)
-            end = rx.get_bottom() + DOWN * (MED_LARGE_BUFF + time + 1)
+        def time_to_points(relative_to, time):
+            return relative_to.get_bottom() + DOWN * (MED_LARGE_BUFF + time)
+
+        def transmit(label, tx, rx, time, color=WHITE, timestamp: Optional[int] = None):
+            start = time_to_points(tx, time)
+            end = time_to_points(rx, time + 1)
+            timestamp_side = 1 if tx.get_x() > 0 else -1
 
             arrow = LabeledArrow(label, start=start, end=end, color=color)
             envelope = Envelope(color=color).move_to(tx).shift(DOWN * MED_LARGE_BUFF)
-            self.play(Succession(
-                GrowFromCenter(envelope),
-                AnimationGroup(
-                    GrowArrow(arrow),
-                    envelope.animate.move_to(rx).shift(DOWN * MED_LARGE_BUFF),
-                ),
-                ShrinkToCenter(envelope)
-            ))
+            self.play(GrowFromCenter(envelope))
+            if timestamp is not None:
+                self.play(Write(MathTex(r't_%d' % timestamp).next_to(start, RIGHT * timestamp_side)))
+            self.play(
+                GrowArrow(arrow),
+                envelope.animate.move_to(rx).shift(DOWN * MED_LARGE_BUFF),
+            )
+            if timestamp is not None:
+                self.play(Write(MathTex(r't_%d' % (timestamp + 1)).next_to(end, LEFT * timestamp_side)))
+            self.play(ShrinkToCenter(envelope))
 
         time = 0.2
-        transmit("pdelay_req", tr, tt, time, color=GOLD)
+        transmit("pdelay_req", tr, tt, time, color=GOLD, timestamp=1)
+
         time += 2
-        transmit("pdelay_resp", tt, tr, time, color=MAROON)
+        transmit("pdelay_resp", tt, tr, time, color=MAROON, timestamp=3)
+
         time += 1
         transmit("pdelay_resp_follow_up", tt, tr, time, color=PURPLE)
 
