@@ -69,31 +69,40 @@ class PeerLinkDelayMeasurement(Scene):
         def time_to_points(relative_to, time):
             return relative_to.get_bottom() + DOWN * (MED_LARGE_BUFF + time)
 
-        def transmit(label, tx, rx, time, color=WHITE, timestamp: Optional[int] = None):
+        def transmit(label, tx, rx, time, color=WHITE, ts_idx: Optional[int] = None, payload=None):
             start = time_to_points(tx, time)
             end = time_to_points(rx, time + 1)
-            timestamp_side = 1 if tx.get_x() > 0 else -1
+            ts_idx_size = 1 if tx.get_x() > 0 else -1
+            timestamps = []
 
             arrow = LabeledArrow(label, start=start, end=end, color=color)
             envelope = Envelope(color=color).move_to(tx).shift(DOWN * MED_LARGE_BUFF)
             self.play(GrowFromCenter(envelope))
-            if timestamp is not None:
-                self.play(Write(MathTex(r't_%d' % timestamp).next_to(start, RIGHT * timestamp_side)))
+            if payload is not None:
+                self.play(payload.animate.move_to(envelope).set_color(color).scale(0.5))
+                self.remove(payload)
+            if ts_idx is not None:
+                ts = MathTex(r't_%d' % ts_idx).next_to(start, RIGHT * ts_idx_size)
+                timestamps.append(ts)
+                self.play(Write(ts))
             self.play(
                 GrowArrow(arrow),
                 envelope.animate.move_to(rx).shift(DOWN * MED_LARGE_BUFF),
             )
-            if timestamp is not None:
-                self.play(Write(MathTex(r't_%d' % (timestamp + 1)).next_to(end, LEFT * timestamp_side)))
+            if ts_idx is not None:
+                ts = MathTex(r't_%d' % (ts_idx + 1)).next_to(end, LEFT * ts_idx_size)
+                timestamps.append(ts)
+                self.play(Write(ts))
             self.play(ShrinkToCenter(envelope))
+            return timestamps
 
         time = 0.2
-        transmit("pdelay_req", tr, tt, time, color=GOLD, timestamp=1)
+        timestamps = transmit("pdelay_req", tr, tt, time, color=GOLD, ts_idx=1)
 
         time += 2
-        transmit("pdelay_resp", tt, tr, time, color=MAROON, timestamp=3)
+        timestamps = transmit("pdelay_resp", tt, tr, time, color=MAROON, ts_idx=3, payload=timestamps[1].copy())
 
         time += 1
-        transmit("pdelay_resp_follow_up", tt, tr, time, color=PURPLE)
+        transmit("pdelay_resp_follow_up", tt, tr, time, color=PURPLE, payload=timestamps[0].copy())
 
         self.wait(3)
