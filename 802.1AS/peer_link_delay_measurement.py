@@ -1,6 +1,9 @@
 from manim import *
 from typing import Optional
 
+def time_to_points(relative_to, time):
+    return relative_to.get_bottom() + DOWN * (MED_LARGE_BUFF + time)
+
 class LabeledArrow(Arrow):
     def __init__(
         self,
@@ -44,80 +47,141 @@ class Envelope(Rectangle):
         *args,
         **kwargs,
     ) -> None:
-        size = MED_SMALL_BUFF
+        size = 0.4
 
         super().__init__(*args, height=size, width=size*1.5, color=color, **kwargs)
 
         self.add(Line(start=self.get_corner(UL), end=self.get_center(), color=color))
         self.add(Line(start=self.get_center(), end=self.get_corner(UR), color=color))
 
+class Transmission():
+    arrow: LabeledArrow
+    envelope: Envelope
+    timestamp_idx: Optional[int]
+    timestamp_idx_side: int
+    start_pt = 0
+    end_pt = 0
+    tx_timestamp: Optional[Mobject]
+    rx_timestamp: Optional[Mobject]
+    txr: Mobject
+    rxr: Mobject
+    payload: Optional[Mobject]
+
+    def __init__(
+            self,
+            label: str,
+            txr: Mobject,
+            rxr: Mobject,
+            time: int,
+            timestamp_idx: Optional[int] = None,
+            payload: Optional[Mobject] = None,
+            color: ParsableManimColor = WHITE,
+    ):
+        self.start_pt = time_to_points(txr, time)
+        self.end_pt = time_to_points(rxr, time + 1)
+        self.arrow = LabeledArrow(label, start=self.start_pt, end=self.end_pt, color=color)
+        self.envelope = Envelope(color=color).move_to(txr).shift(DOWN * MED_LARGE_BUFF)
+        self.timestamp_idx = timestamp_idx
+        self.timestamp_idx_side = 1 if txr.get_x() > 0 else -1
+        self.timestamp_idx = timestamp_idx
+        self.txr = txr
+        self.rxr = rxr
+        self.payload = payload
+        if self.payload is not None:
+            self.payload.set_color(color)
+
+    def create(self, scene = None):
+        scene.play(GrowFromCenter(self.envelope))
+        if self.payload is not None:
+            payload = self.payload.copy()
+            scene.play(payload.animate.move_to(self.envelope).scale(0.5))
+            self.envelope.add(payload)
+
+    def send(self, scene = None):
+        if self.timestamp_idx is not None:
+            self.tx_timestamp = MathTex(
+                r't_%d' % self.timestamp_idx,
+                color=self.txr.get_color()
+            ).next_to(self.start_pt, RIGHT * self.timestamp_idx_side)
+            scene.play(Write(self.tx_timestamp))
+        animations = [
+            GrowArrow(self.arrow),
+            self.envelope.animate.move_to(self.rxr).shift(DOWN * MED_LARGE_BUFF),
+        ]
+        if self.payload is not None:
+            payload = self.payload.copy()
+            animation = (
+                payload
+                    .animate
+                    .move_to(self.arrow)
+                    .shift(DOWN * 0.2)
+                    .scale(0.5)
+            )
+            animations.append(animation)
+        scene.play(*animations)
+        if self.timestamp_idx is not None:
+            self.rx_timestamp = MathTex(
+                r't_%d' % (self.timestamp_idx + 1),
+                color=self.rxr.get_color()
+            ).next_to(self.end_pt, LEFT * self.timestamp_idx_side)
+            scene.play(Write(self.rx_timestamp))
+
+    def destroy(self, scene):
+        return scene.play(ShrinkToCenter(self.envelope))
+
+class Node(Square):
+    label: str
+
+    def __init__(
+            self,
+            label: str,
+            color: ParsableManimColor = WHITE,
+    ):
+        super().__init__(color=color)
+        self.set_fill(color, opacity=0.6)
+        self.label = label
+
+    def create(self, scene):
+        text = Text(self.label).move_to(self.get_center())
+        scene.play(Create(self))
+        scene.play(Write(text))
+        self.add(text)
+
 class PeerLinkDelayMeasurement(Scene):
     def construct(self):
         # self.next_section(skip_animations=True)
         Text.set_default(font_size = 12)
 
-        tt = (
-            Square(color=GREEN)
-                .set_fill(GREEN, opacity=0.6)
-                .shift(LEFT * 3)
-        )
-        self.play(Create(tt))
-        tt_text = Text("timeTransmitter").move_to(tt.get_center())
-        self.play(Write(tt_text))
-        tr = (
-            Square(color=BLUE)
-                .set_fill(BLUE, opacity=0.6)
-                .shift(RIGHT * 3)
-        )
-        self.play(Create(tr))
-        tr_text = Text("timeReceiver").move_to(tr.get_center())
-        self.play(Write(tr_text))
+        tt = Node("timeTransmitter", color=GREEN).shift(LEFT * 3)
+        tt.create(self)
 
-        topology = Group(tt, tr, tt_text, tr_text)
+        tr = Node("timeReciever", color=BLUE).shift(RIGHT * 3)
+        tr.create(self)
+
+        topology = Group(tt, tr)
         self.play(topology.animate.next_to(ORIGIN, UP, buff=1.5))
         self.play(
             Create(Line([0, 1, 0], [0, -3.5, 0], color=GREEN).shift(LEFT * 3)),
             Create(Line([0, 1, 0], [0, -3.5, 0], color=BLUE).shift(RIGHT * 3)),
         )
 
-        def time_to_points(relative_to, time):
-            return relative_to.get_bottom() + DOWN * (MED_LARGE_BUFF + time)
-
-        def transmit(label, tx, rx, time, color=WHITE, ts_idx: Optional[int] = None, payload=None):
-            start = time_to_points(tx, time)
-            end = time_to_points(rx, time + 1)
-            ts_idx_size = 1 if tx.get_x() > 0 else -1
-            timestamps = []
-
-            arrow = LabeledArrow(label, bottom_label=payload, start=start, end=end, color=color)
-            envelope = Envelope(color=color).move_to(tx).shift(DOWN * MED_LARGE_BUFF)
-            self.play(GrowFromCenter(envelope))
-            if payload is not None:
-                self.play(payload.set_color(color).animate.move_to(envelope).scale(0.5))
-                self.remove(payload)
-            if ts_idx is not None:
-                ts = MathTex(r't_%d' % ts_idx, color=tx.get_color()).next_to(start, RIGHT * ts_idx_size)
-                timestamps.append(ts)
-                self.play(Write(ts))
-            self.play(
-                GrowArrow(arrow),
-                envelope.animate.move_to(rx).shift(DOWN * MED_LARGE_BUFF),
-            )
-            if ts_idx is not None:
-                ts = MathTex(r't_%d' % (ts_idx + 1), color=rx.get_color()).next_to(end, LEFT * ts_idx_size)
-                timestamps.append(ts)
-                self.play(Write(ts))
-            self.play(ShrinkToCenter(envelope))
-            return timestamps
-
         time = 0.2
-        timestamps = transmit("pdelay_req", tr, tt, time, color=GOLD, ts_idx=1)
+        pdelay_req = Transmission("pdelay_req", tr, tt, time, color=GOLD, timestamp_idx=1)
+        pdelay_req.create(self)
+        pdelay_req.send(self)
+        pdelay_req.destroy(self)
 
         time += 2
-        timestamps = transmit("pdelay_resp", tt, tr, time, color=MAROON, ts_idx=3, payload=timestamps[1].copy())
+        pdelay_resp = Transmission("pdelay_resp", tt, tr, time, color=MAROON, timestamp_idx=3, payload=pdelay_req.rx_timestamp.copy())
+        pdelay_resp.create(self)
+        pdelay_resp.send(self)
+        pdelay_resp.destroy(self)
 
         time += 1
-        transmit("pdelay_resp_follow_up", tt, tr, time, color=PURPLE, payload=timestamps[0].copy())
+        pdelay_resp_follow_up = Transmission("pdelay_resp_follow_up", tt, tr, time, color=PURPLE, payload=pdelay_resp.tx_timestamp.copy())
+        pdelay_resp_follow_up.create(self)
+        pdelay_resp_follow_up.send(self)
+        pdelay_resp_follow_up.destroy(self)
 
         sequence = Group(*self.mobjects)
         self.play(sequence.animate.next_to(config.left_side))
