@@ -97,7 +97,7 @@ class Transmission():
             scene.play(payload.animate.move_to(self.envelope).scale(0.5))
             self.envelope.add(payload)
 
-    def send(self, scene = None):
+    def transmit(self, scene = None):
         if self.timestamp_idx is not None:
             self.tx_timestamp = MathTex(
                 r't_%d' % self.timestamp_idx,
@@ -127,7 +127,12 @@ class Transmission():
             scene.play(Write(self.rx_timestamp))
 
     def destroy(self, scene):
-        return scene.play(ShrinkToCenter(self.envelope))
+        scene.play(ShrinkToCenter(self.envelope))
+
+    def send(self, scene):
+        self.create(scene)
+        self.transmit(scene)
+        self.destroy(scene)
 
 class Node(Square):
     label: str
@@ -167,26 +172,19 @@ class PeerLinkDelayMeasurement(Scene):
 
         time = 0.2
         pdelay_req = Transmission("pdelay_req", tr, tt, time, color=GOLD, timestamp_idx=1)
-        pdelay_req.create(self)
         pdelay_req.send(self)
-        pdelay_req.destroy(self)
 
         time += 2
         pdelay_resp = Transmission("pdelay_resp", tt, tr, time, color=MAROON, timestamp_idx=3, payload=pdelay_req.rx_timestamp.copy())
-        pdelay_resp.create(self)
         pdelay_resp.send(self)
-        pdelay_resp.destroy(self)
 
         time += 1
         pdelay_resp_follow_up = Transmission("pdelay_resp_follow_up", tt, tr, time, color=PURPLE, payload=pdelay_resp.tx_timestamp.copy())
-        pdelay_resp_follow_up.create(self)
         pdelay_resp_follow_up.send(self)
-        pdelay_resp_follow_up.destroy(self)
 
         sequence = Group(*self.mobjects)
         self.play(sequence.animate.next_to(config.left_side))
 
-        self.next_section()
         eqn = MathTex(r'\operatorname{meanLinkDelay} = \frac{(t_4 - t_3) + (t_2 - t_1)}{2}', font_size=36)
         eqn[0][15:17].set_color(BLUE)
         eqn[0][18:20].set_color(GREEN)
