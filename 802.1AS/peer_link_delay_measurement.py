@@ -53,6 +53,7 @@ class Envelope(Rectangle):
 
 class PeerLinkDelayMeasurement(Scene):
     def construct(self):
+        # self.next_section(skip_animations=True)
         Text.set_default(font_size = 12)
 
         tt = (
@@ -116,4 +117,15 @@ class PeerLinkDelayMeasurement(Scene):
         time += 1
         transmit("pdelay_resp_follow_up", tt, tr, time, color=PURPLE, payload=timestamps[0].copy())
 
+        sequence = Group(*self.mobjects)
+        self.play(sequence.animate.next_to(config.left_side))
+
+        self.next_section()
+        eqn = MathTex(r'\operatorname{meanLinkDelay} = \frac{(t_4 - t_3) + (t_2 - t_1)}{2}', font_size=36)
+        eqn[0][15:17].set_color(BLUE)
+        eqn[0][18:20].set_color(GREEN)
+        eqn[0][23:25].set_color(GREEN)
+        eqn[0][26:28].set_color(BLUE)
+        eqn.next_to(config.right_side, LEFT)
+        self.play(Write(eqn))
         self.wait(3)
