@@ -59,19 +59,21 @@ class PeerLinkDelayMeasurement(Scene):
         tt = (
             Square(color=GREEN)
                 .set_fill(GREEN, opacity=0.6)
-                .add(Text("timeTransmitter"))
                 .shift(LEFT * 3)
         )
+        self.play(Create(tt))
+        tt_text = Text("timeTransmitter").move_to(tt.get_center())
+        self.play(Write(tt_text))
         tr = (
             Square(color=BLUE)
                 .set_fill(BLUE, opacity=0.6)
-                .add(Text("timeReceiver"))
                 .shift(RIGHT * 3)
         )
-        self.play(Create(tt))
         self.play(Create(tr))
+        tr_text = Text("timeReceiver").move_to(tr.get_center())
+        self.play(Write(tr_text))
 
-        topology = Group(tt, tr)
+        topology = Group(tt, tr, tt_text, tr_text)
         self.play(topology.animate.next_to(ORIGIN, UP, buff=1.5))
         self.play(
             Create(Line([0, 1, 0], [0, -3.5, 0], color=GREEN).shift(LEFT * 3)),
