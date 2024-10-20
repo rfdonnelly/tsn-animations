@@ -157,17 +157,29 @@ class PeerLinkDelayMeasurement(Scene):
         # self.next_section(skip_animations=True)
         Text.set_default(font_size = 12)
 
-        tt = Node("timeTransmitter", color=GREEN).shift(LEFT * 3)
+        tt = Node("timeTransmitter", color=GREEN).shift(LEFT * 2.5)
         tt.create(self)
 
-        tr = Node("timeReciever", color=BLUE).shift(RIGHT * 3)
+        tr = Node("timeReciever", color=BLUE).shift(RIGHT * 2.5)
         tr.create(self)
 
         topology = Group(tt, tr)
         self.play(topology.animate.next_to(ORIGIN, UP, buff=1.5))
         self.play(
-            Create(Line([0, 1, 0], [0, -3.5, 0], color=GREEN).shift(LEFT * 3)),
-            Create(Line([0, 1, 0], [0, -3.5, 0], color=BLUE).shift(RIGHT * 3)),
+            Create(
+                Line(
+                    tt.get_bottom() + DOWN * MED_LARGE_BUFF,
+                    tt.get_bottom() + DOWN * (MED_LARGE_BUFF + 4.5),
+                    color=GREEN
+                )
+            ),
+            Create(
+                Line(
+                    tr.get_bottom() + DOWN * MED_LARGE_BUFF,
+                    tr.get_bottom() + DOWN * (MED_LARGE_BUFF + 4.5),
+                    color=BLUE
+                )
+            ),
         )
 
         time = 0.2
