@@ -7,7 +7,7 @@ venv/bin/pip install manim
 venv/bin/manim 802.1AS/peer_link_delay_measurement.py PeerLinkDelayMeasurement
 ----
 
-video::https://github.com/user-attachments/assets/c1b441ac-6faf-4fc6-ace5-e5d0d2ee5092[]
+video::https://github.com/user-attachments/assets/84eac887-b4d2-43d3-8f1f-b172800d9d02[]
 
 == License
 
