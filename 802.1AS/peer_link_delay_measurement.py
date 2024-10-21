@@ -160,7 +160,7 @@ class PeerLinkDelayMeasurement(Scene):
         tt = Node("timeTransmitter", color=GREEN).shift(LEFT * 2.5)
         tt.create(self)
 
-        tr = Node("timeReciever", color=BLUE).shift(RIGHT * 2.5)
+        tr = Node("timeReceiver", color=BLUE).shift(RIGHT * 2.5)
         tr.create(self)
 
         topology = Group(tt, tr)
