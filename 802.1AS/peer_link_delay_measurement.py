@@ -79,7 +79,7 @@ class Transmission():
     ):
         self.start_pt = time_to_points(txr, time)
         self.end_pt = time_to_points(rxr, time + 1)
-        self.arrow = LabeledArrow(label, start=self.start_pt, end=self.end_pt, color=color)
+        self.arrow = LabeledArrow(label, bottom_label=payload, start=self.start_pt, end=self.end_pt, color=color)
         self.envelope = Envelope(color=color).move_to(txr).shift(DOWN * MED_LARGE_BUFF)
         self.timestamp_idx = timestamp_idx
         self.timestamp_idx_side = 1 if txr.get_x() > 0 else -1
@@ -90,48 +90,51 @@ class Transmission():
         if self.payload is not None:
             self.payload.set_color(color)
 
-    def create(self, scene = None):
+    def create(self, scene):
         scene.play(GrowFromCenter(self.envelope))
         if self.payload is not None:
             payload = self.payload.copy()
             scene.play(payload.animate.move_to(self.envelope).scale(0.5))
             self.envelope.add(payload)
 
-    def transmit(self, scene = None):
+    def transmit(self, scene, seqdiag):
         if self.timestamp_idx is not None:
             self.tx_timestamp = MathTex(
                 r't_%d' % self.timestamp_idx,
                 color=self.txr.get_color()
             ).next_to(self.start_pt, RIGHT * self.timestamp_idx_side)
             scene.play(Write(self.tx_timestamp))
+            seqdiag.add(self.tx_timestamp)
         animations = [
             GrowArrow(self.arrow),
             self.envelope.animate.move_to(self.rxr).shift(DOWN * MED_LARGE_BUFF),
         ]
-        if self.payload is not None:
-            payload = self.payload.copy()
-            animation = (
-                payload
-                    .animate
-                    .move_to(self.arrow)
-                    .shift(DOWN * 0.2)
-                    .scale(0.5)
-            )
-            animations.append(animation)
+        # if self.payload is not None:
+        #     payload = self.payload.copy()
+        #     animation = (
+        #         payload
+        #             .animate
+        #             .move_to(self.arrow)
+        #             .shift(DOWN * 0.2)
+        #             .scale(0.5)
+        #     )
+        #     animations.append(animation)
         scene.play(*animations)
+        seqdiag.add(self.arrow)
         if self.timestamp_idx is not None:
             self.rx_timestamp = MathTex(
                 r't_%d' % (self.timestamp_idx + 1),
                 color=self.rxr.get_color()
             ).next_to(self.end_pt, LEFT * self.timestamp_idx_side)
             scene.play(Write(self.rx_timestamp))
+            seqdiag.add(self.rx_timestamp)
 
     def destroy(self, scene):
         scene.play(ShrinkToCenter(self.envelope))
 
-    def send(self, scene):
+    def send(self, scene, seqdiag):
         self.create(scene)
-        self.transmit(scene)
+        self.transmit(scene, seqdiag)
         self.destroy(scene)
 
 class Node(Square):
@@ -148,54 +151,66 @@ class Node(Square):
 
     def create(self, scene):
         text = Text(self.label).move_to(self.get_center())
-        scene.play(Create(self))
-        scene.play(Write(text))
+        scene.play(Create(self), Write(text))
         self.add(text)
+
+class SeqDiag(VGroup):
+    def __init__(self, left, right):
+        self.left = left
+        self.right = right
+
+        def top_point(obj):
+            return obj.get_bottom() + DOWN * MED_LARGE_BUFF
+
+        left_pt = top_point(left)
+        right_pt = top_point(right)
+        self.lifelines = [
+            Line(
+                start=left_pt,
+                end=left_pt + DOWN * 4.5,
+                color=GREEN,
+            ),
+            Line(
+                start=right_pt,
+                end=right_pt + DOWN * 4.5,
+                color=BLUE
+            ),
+        ]
+        super().__init__(*self.lifelines)
+
+    def create_lifelines(self):
+        return map(Create, self.lifelines)
 
 class PeerLinkDelayMeasurement(Scene):
     def construct(self):
         # self.next_section(skip_animations=True)
         Text.set_default(font_size = 12)
 
-        tt = Node("timeTransmitter", color=GREEN).shift(LEFT * 2.5)
+        tt = Node("timeTransmitter", color=GREEN).shift(LEFT * 2)
         tt.create(self)
 
-        tr = Node("timeReceiver", color=BLUE).shift(RIGHT * 2.5)
+        tr = Node("timeReceiver", color=BLUE).shift(RIGHT * 2)
         tr.create(self)
 
         topology = Group(tt, tr)
         self.play(topology.animate.next_to(ORIGIN, UP, buff=1.5))
-        self.play(
-            Create(
-                Line(
-                    tt.get_bottom() + DOWN * MED_LARGE_BUFF,
-                    tt.get_bottom() + DOWN * (MED_LARGE_BUFF + 4.5),
-                    color=GREEN
-                )
-            ),
-            Create(
-                Line(
-                    tr.get_bottom() + DOWN * MED_LARGE_BUFF,
-                    tr.get_bottom() + DOWN * (MED_LARGE_BUFF + 4.5),
-                    color=BLUE
-                )
-            ),
-        )
+
+        seqdiag = SeqDiag(tt, tr)
+        self.play(*seqdiag.create_lifelines())
 
         time = 0.2
         pdelay_req = Transmission("pdelay_req", tr, tt, time, color=GOLD, timestamp_idx=1)
-        pdelay_req.send(self)
+        pdelay_req.send(self, seqdiag)
 
         time += 2
         pdelay_resp = Transmission("pdelay_resp", tt, tr, time, color=MAROON, timestamp_idx=3, payload=pdelay_req.rx_timestamp.copy())
-        pdelay_resp.send(self)
+        pdelay_resp.send(self, seqdiag)
 
         time += 1
         pdelay_resp_follow_up = Transmission("pdelay_resp_follow_up", tt, tr, time, color=PURPLE, payload=pdelay_resp.tx_timestamp.copy())
-        pdelay_resp_follow_up.send(self)
+        pdelay_resp_follow_up.send(self, seqdiag)
 
-        sequence = Group(*self.mobjects)
-        self.play(sequence.animate.next_to(config.left_side))
+        self.play(Group(*self.mobjects).animate.to_edge(LEFT))
 
         t1 = MathTex(r"\operatorname{meanLinkDelay}", r" = {(t_4 - t_3) + (t_2 - t_1) \over 2}", font_size=36)
         t2 = MathTex(r" = {(t_4 - t_1) - (t_3 - t_2) \over 2}", font_size=36)
@@ -215,8 +230,26 @@ class PeerLinkDelayMeasurement(Scene):
         self.wait(3)
         self.play(Unwrite(t1), Unwrite(t2))
 
-        t1 = MathTex(r"\operatorname{correctedResponderEventTimestamp} = t_3 + \operatorname{correctionField}", font_size=18)
-        t2 = MathTex(r"\operatorname{neighborRateRatio}", r" = {\operatorname{correctedResponderEventTimestamp}_N - \operatorname{correctedResponderEventTimestamp}_0 \over \operatorname{pdelayRespEventIngressTimestamp}_N - \operatorname{pdelayRespEventIngressTimestamp}_0}", font_size=18)
+        self.remove(tt, tr)
+        self.play(seqdiag.animate.scale(0.5).to_corner(UL))
+        def copy_below(obj):
+            return obj.copy().next_to(obj, DOWN, buff=0)
+        seqdiags = [seqdiag]
+        seqdiags.append(copy_below(seqdiags[-1]))
+        self.play(Create(seqdiags[-1]))
+        seqdiags.append(copy_below(seqdiags[-1]))
+        self.play(Create(seqdiags[-1]))
+        # self.play(VGroup(*seqdiags).animate.scale(0.5).to_corner(UL))
+        # seqdiags.append(copy_below(seqdiags[-1]))
+        # self.play(Create(seqdiags[-1]))
+        # seqdiags.append(copy_below(seqdiags[-1]))
+        # self.play(Create(seqdiags[-1]))
+        # seqdiags.append(copy_below(seqdiags[-1]))
+        # self.play(Create(seqdiags[-1]))
+        self.wait(3)
+
+        t1 = MathTex(r"\operatorname{correctedResponderEventTimestamp} = t_3 + \operatorname{correctionField}", font_size=24)
+        t2 = MathTex(r"\operatorname{neighborRateRatio}", r" = {\operatorname{correctedResponderEventTimestamp}_N - \operatorname{correctedResponderEventTimestamp}_0 \over \operatorname{pdelayRespEventIngressTimestamp}_N - \operatorname{pdelayRespEventIngressTimestamp}_0}", font_size=24)
         group = VGroup(t1, t2).arrange(DOWN, aligned_edge=RIGHT)
         group.next_to(config.right_side, LEFT)
         self.play(Write(t1))
